@@ -49,10 +49,12 @@ class Modscale {
     }
 
     public function bases() {
+        // return bases used
         return $this->bases;
     }
 
     public function ratios() {
+        // return ratios used
         return $this->ratios;
     }
 
