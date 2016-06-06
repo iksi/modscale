@@ -1,7 +1,7 @@
 <?php
 
 class Modscale {
-    // defaults
+
     private $base = 1;
     private $ratio = 9/8;
 
