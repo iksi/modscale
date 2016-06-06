@@ -1,111 +1,52 @@
 <?php
 
-/*
-
-    MODSCALE
-
-    base needs to be greater than 0
-    ratio needs to be greater than 1
-    1-4 bases + 1 ratio
-    1 base + 1-4 ratios
-
-    maybe think of the scale() function as
-    a range between 1px and 1600px (0.0625 - 100)
-
-*/
-
 class Modscale {
     // defaults
-    private $bases  = [1];
-    private $ratios = [1.618];
+    private $base = 1;
+    private $ratio = 9/8;
 
-    public function __construct($bases, $ratios) {
-        // bases greater than 0
-        // ratios greater than 1
-        $bases  = $this->filter($bases, 0);
-        $ratios = $this->filter($ratios, 1);
-
-        // multiple bases use single ratio
-        // multiple ratios use single base
-        $ratios = count($bases) > 1 ? array_slice($ratios, 0, 1) : $ratios;
-        $bases  = count($ratios) > 1 ? array_slice($bases, 0, 1) : $bases;
-
-        // use inputs or defaults
-        $this->bases = empty($bases) ? $this->bases : $bases;
-        $this->ratios = empty($ratios) ? $this->ratios : $ratios;
-    }
-
-    public function filter($values, $minimum) {
-        // unique floats
-        $values = array_unique(array_map('floatval', (array) $values));
-
-        // only values greater than the indicated minimum
-        $values = array_filter($values, function($value) use($minimum) {
-            return $value > $minimum;
-        });
-
-        // return a maximum of 4 results
-        return array_slice($values, 0, 4);
-    }
-
-    public function bases() {
-        // return bases used
-        return $this->bases;
-    }
-
-    public function ratios() {
-        // return ratios used
-        return $this->ratios;
+    public function __construct( array $settings) {
+        foreach ($settings as $key => $value) {
+            if (property_exists($this, $key)) {
+                $this->$key = $value;
+            }
+        }
     }
 
     public function calc($number) {
-        $list = [];
+        $base = (array) $this->base;
+        $ratio = $this->ratio;
 
-        foreach ($this->bases as $base) {
-            foreach ($this->ratios as $ratio) {
-                if ($number >= 0) {
-                    // Find values on a positive scale
-                    for ($i = 0; pow($ratio, $i) * $base >= $this->bases[0]; $i--) {
-                        $list[] = pow($ratio, $i) * $base;
-                    }
+        // Fast calc if not multi stranded
+        if (count($base) === 1) {
+            return pow($ratio, $number) * $base[0];
+        }
 
-                    for ($i = 0; pow($ratio, $i) * $base <= pow($ratio, $number + 1) * $base; $i++) {
-                        $list[] = pow($ratio, $i) * $base;
-                    }
-                } else {
-                    // Find values on a negative scale
-                    for ($i = 0; pow($ratio, $i) * $base <= $this->bases[0]; $i++) {
-                        $list[] = pow($ratio, $i) * $base;
-                    }
+        // Normalize bases
+        // Find the upper bounds for base values
+        $baseHigh = pow($ratio, 1) * $base[0];
 
-                    for ($i = 0; pow($ratio, $i) * $base >= pow($ratio, $number - 1) * $base; $i--) {
-                        if (pow($ratio, $i) * $base <= $this->bases[0]) {
-                            $list[] = pow($ratio, $i) * $base;
-                        }
-                    }
-                }
+        for ($i = 1; $i < count($base); $i++) {
+            // shift up if value too low
+            while ($base[$i] < $base[0]) {
+                $base[$i] = pow($ratio, 1) * $base[$i];
+            }
+            // Shift down if too high
+            while ($base[$i] >= $baseHigh) {
+                $base[$i] = pow($ratio, -1) * $base[$i];
             }
         }
 
-        $list = array_unique($list);
-        sort($list);
+        // Sort bases
+        sort($base);
 
-        if ($number < 0) {
-            $list = array_reverse($list);
-        }
+        $step = floor($number / count($base));
 
-        $abs = abs($number);
+        // Figure out what base to use with modulo
+        $rBase = round(($number / count($base) - $step) * count($base));
 
-        return round($list[$abs], 3);
+        // Return
+        return pow($ratio, $step) * $base[$rBase];
     }
 
-    public function scale($upper, $lower) {
-        $scale = [];
-
-        foreach (range($upper, $lower) as $number) {
-            $scale[$number] = $this->calc($number);
-        }
-
-        return $scale;
-    }
 }
